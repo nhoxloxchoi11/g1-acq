@@ -6,7 +6,7 @@
 
 Google One（iOS）订阅入口的商品 ID 改写与采集工具，适用于 **Shadowrocket / 小火箭**。
 
-**只需一个 G1 ACQ：被动采集原始 SKU、执行三档改写，并提供最近 10 次响应、本次新增、重复诊断与 JSON 导出。** 原始 iOS 2TB → `g1.2tb.ai.12months_ip_90p` 用户截图指定候选的 12个月优惠测试，20TB 保留原有优惠映射与回退，30TB 固定映射为 `g1.ai.ultra.1month_eft.acq`。当前安装版本为 `v7.5.1`，响应脚本为 `g1-acq-v7.5.1`，无需另装扫描器或反复切换模块。采集只读取手机实际收到的匹配响应，**不会主动查询全量 SKU**；旧 ID 再次出现时累加次数，清单保持原样也能代表正在收到重复数据。完整安装与实机核对步骤见 [Pro 12个月优惠测试与 SKU 扫描](docs/pro-annual-test.md)。
+**只需一个 G1 ACQ：被动采集原始 SKU、执行三档改写，并提供最近 10 次响应、本次新增、重复诊断与 JSON 导出。** 原始 iOS 2TB → `g1.2tb.ai.12months_ip_90p` 用户截图指定候选的 12个月优惠测试，20TB 固定映射为 `g1.2tb.ai.18months_eft`（无 `.acq` 后缀），30TB 固定映射为 `g1.ai.ultra.1month_eft.acq`，均没有备用档。当前安装版本为 `v7.5.2`，响应脚本为 `g1-acq-v7.5.2`，无需另装扫描器或反复切换模块。采集只读取手机实际收到的匹配响应，**不会主动查询全量 SKU**；旧 ID 再次出现时累加次数，清单保持原样也能代表正在收到重复数据。完整安装与实机核对步骤见 [Pro 12个月优惠测试与 SKU 扫描](docs/pro-annual-test.md)。
 
 > 响应中出现商品 ID，只能证明页面携带该字符串，不等于 App Store 商品目录校验。改写命中也不等于商品可购买；商品名称、周期、初次与续费金额须在 App Store 收银台核对，权益以 Google One 账户实际状态为准。
 
@@ -15,10 +15,10 @@ Google One（iOS）订阅入口的商品 ID 改写与采集工具，适用于 **
 **G1 ACQ：被动采集、三档改写与响应活动诊断**
 
 ```text
-https://cdn.jsdelivr.net/gh/nhoxloxchoi11/g1-acq@v7.5.1/g1-acq-v7.sgmodule
+https://cdn.jsdelivr.net/gh/nhoxloxchoi11/g1-acq@v7.5.2/g1-acq-v7.sgmodule
 ```
 
-首次安装时在小火箭模块管理中添加上面的地址并启用；从旧版本升级时，将旧 **G1 ACQ** 替换为此地址一次。模块安装入口与内部响应、报告脚本均固定引用 `@v7.5.1`，无需单独添加脚本；安装或升级后重新连接，再重新进入 Google App 的订阅页。升级保留本地历史记录；响应诊断不保证产生新 ID，重复安装也不会促使服务器下发新 SKU。
+首次安装时在小火箭模块管理中添加上面的地址并启用；从旧版本升级时，将旧 **G1 ACQ** 替换为此地址一次。模块安装入口与内部响应、报告脚本均固定引用 `@v7.5.2`，无需单独添加脚本；安装或升级后重新连接，再重新进入 Google App 的订阅页。升级保留本地历史记录；响应诊断不保证产生新 ID，重复安装也不会促使服务器下发新 SKU。
 
 **个人命名安装入口：G1 ACQ - nhoxloxchoi11**
 
@@ -26,11 +26,11 @@ https://cdn.jsdelivr.net/gh/nhoxloxchoi11/g1-acq@v7.5.1/g1-acq-v7.sgmodule
 https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11.sgmodule
 ```
 
-此入口以独立名称显示，方便在模块列表中识别。安装后，先停用旧 **G1 ACQ**、**G1 Pro Annual Test**、**G1 SKU Scan** 及其它兼容改写模块，再启用 **G1 ACQ - nhoxloxchoi11** 并重新连接。个人命名入口与上方入口使用同一套固定 `v7.5.1` 响应、报告脚本。
+此入口以独立名称显示，方便在模块列表中识别。安装后，先停用旧 **G1 ACQ**、**G1 Pro Annual Test**、**G1 SKU Scan** 及其它兼容改写模块，再启用 **G1 ACQ - nhoxloxchoi11** 并重新连接。个人命名入口与上方入口使用同一套固定 `v7.5.2` 响应、报告脚本。
 
 两个安装入口任选其一，仅开启所选主模块即可。若手机曾安装独立 **G1 SKU Scan**、**G1 Pro Annual Test** 或其它改写副本，停用这些旧副本，避免重复计数或改写；只装了一个主模块时没有额外关闭步骤。历史 `v7.0.0` / `v7.1.0` / `v7.2.0` / `v7.3.0` / `v7.4.0`、`pro-annual-test-v1` / `pro-annual-test-v2` 标签保持不动。
 
-最近 10 次响应诊断由主脚本 `g1-acq-v7.5.1` 提供；**G1 Pro Annual Test** 兼容入口也使用该脚本，但仍仅匹配 `/ai?`。独立 **G1 SKU Scan** 兼容入口只更新下载 pin，脚本继续保存历史版本 `pro-annual-test-v2`，没有新增活动诊断；新版报告读取它时显示 **旧采集记录**，响应历史为空。
+最近 10 次响应诊断由主脚本 `g1-acq-v7.5.2` 提供；**G1 Pro Annual Test** 兼容入口也使用该脚本，但仍仅匹配 `/ai?`。独立 **G1 SKU Scan** 兼容入口只更新下载 pin，脚本继续保存历史版本 `pro-annual-test-v2`，没有新增活动诊断；新版报告读取它时显示 **旧采集记录**，响应历史为空。
 
 ## 三档映射
 
@@ -39,10 +39,10 @@ https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11
 | 正文中的完整源 SKU | 默认目标 | 备用目标 |
 |---|---|---|
 | `g1.ios.2tb.` 前缀的完整 SKU | `g1.2tb.ai.12months_ip_90p`（用户指定候选） | 无 |
-| `g1.ios.20tb.m.v2` | `g1.20tb.3months_ip_90p.acq` | `g1.20tb.3months_ip_75p.acq` |
+| `g1.ios.20tb.m.v2` | `g1.2tb.ai.18months_eft`（无 `.acq` 后缀） | 无 |
 | `g1.ios.30tb.ai.pro.m` | `g1.ai.ultra.1month_eft.acq` | 无 |
 
-2TB 12个月优惠测试的源商品是 **原始 iOS 2TB**，目标固定且没有备用档。30TB 固定替换为 `g1.ai.ultra.1month_eft.acq`，同样没有备用档，也不要求目标预先出现在原始响应中。20TB 保留原有回退逻辑：只有默认 90p 目标未出现在原始响应正文、75p 备用目标出现时才用 75p；90p 出现时优先用 90p，两个目标都未出现时仍用默认 90p。这是正文字符串判断，不是商店商品查询。三档都未命中时原样返回响应。
+2TB 12个月优惠测试的源商品是 **原始 iOS 2TB**，目标固定为 `g1.2tb.ai.12months_ip_90p`。20TB 完整源 ID `g1.ios.20tb.m.v2` 固定替换为 `g1.2tb.ai.18months_eft`，目标没有 `.acq` 后缀；30TB 固定替换为 `g1.ai.ultra.1month_eft.acq`。三档均没有备用目标，也不要求目标预先出现在原始响应中；即使正文带有旧 90p / 75p 商品 ID，也不会改变当前固定映射。这是字符串替换，不是商店商品查询。三档都未命中时原样返回响应。
 
 **2TB 候选固定为 `g1.2tb.ai.12months_ip_90p`，没有 `.acq` 后缀。** 用户截图首项提供该候选与价格标签 `$1.99 × 12 months = $23.88/year`，图示表达连续 12 个月的月度优惠；`90p` 表示 **90% off，约一折**，不是实付 90% 的九折。`$23.88/year` 是截图中的 12 个月合计标签，不是一次年付扣款的证据。
 
@@ -54,7 +54,7 @@ https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11
 
 ![配置页入口：点击 shadowrocket.conf 右侧的 (i) 图标进入配置编辑，才能看到 HTTPS 解密](docs-config-entry.png)
 
-1. 在小火箭模块管理中启用上面 `v7.5.1` 地址安装的 **G1 ACQ**；旧版用户按前文升级一次，首页保持 VPN 连接。
+1. 在小火箭模块管理中启用上面 `v7.5.2` 地址安装的 **G1 ACQ**；旧版用户按前文升级一次，首页保持 VPN 连接。
 2. 从上述当前配置的 **(i)** 入口进入 **HTTPS 解密**，打开解密开关。已有可用且已受信任的 Shadowrocket 证书时直接沿用；尚未配置证书时，在该页生成并安装证书，再完成下两步。
 3. 首次配置证书时，在 iOS **设置 → 通用 → VPN 与设备管理** 中完成 Shadowrocket 描述文件安装。
 4. 首次配置证书时，在 iOS **设置 → 通用 → 关于本机 → 证书信任设置** 中开启对应 Shadowrocket 根证书的信任。
@@ -64,7 +64,7 @@ https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11
 ## 手机端使用流程
 
 1. 保持新版 **G1 ACQ** 开启与小火箭连接；收到匹配响应后，采集和改写会自动依次执行。
-2. 打开 **Google App（彩色 G 图标）→ Google One 管理**，进入 **2TB / Pro** 方案进行12个月优惠测试；核对保留映射时，再分别打开实际提供的 **20TB / 30TB** 方案。
+2. 打开 **Google App（彩色 G 图标）→ Google One 管理**，进入 **2TB / Pro** 方案进行12个月优惠测试；核对其它映射时，再分别打开实际提供的 **20TB / 30TB** 方案。
 3. 进入订阅流程后，核对 App Store 收银台显示的商品名称、周期、初次与续费金额；在 Safari 地址栏粘贴完整[本地报告地址](https://one.google.com/g1-sku-report)，查看原始候选 SKU 与改写记录，再点操作区的 **导出 JSON** 按钮。
 
 ![Google One Ultra 方案选择面板：旧模块的 20TB 方案入口示例](docs-ultra-plans.png)
@@ -77,13 +77,13 @@ https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11
 
 ## 本地报告与排错
 
-保持 **G1 ACQ** 开启与小火箭连接，在 Safari 地址栏粘贴完整[本地报告地址](https://one.google.com/g1-sku-report)。页面上方应显示 **本机脚本已接管** 和 **v7.5.1** 标识，操作区有 **导出 JSON** 按钮；也可直接打开[JSON 导出地址](https://one.google.com/g1-sku-report?format=json)。
+保持 **G1 ACQ** 开启与小火箭连接，在 Safari 地址栏粘贴完整[本地报告地址](https://one.google.com/g1-sku-report)。页面上方应显示 **本机脚本已接管** 和 **v7.5.2** 标识，操作区有 **导出 JSON** 按钮；也可直接打开[JSON 导出地址](https://one.google.com/g1-sku-report?format=json)。
 
 地址使用 `one.google.com`，页面由 Shadowrocket 的 `http-request` 脚本在手机本机生成，**不是 Google 提供的报告页面**。拦截范围为 `/g1-sku-report`、末尾带 `/` 的同一路径及其 query；本机接管后直接返回 HTML 或 JSON，不把这次请求交给 Google。
 
 若看到 Google 普通页面、404，或没有上述本机标识与导出按钮，当前展示的就不是这版本机报告。核对新版模块开启、小火箭连接、**当前配置 (i) → HTTPS 解密**、`one.google.com` hostname 与受信任证书，再把完整 URL 粘贴到 Safari 地址栏打开。
 
-`reportVersion=v7.5.1` 表示报告脚本版本，**不证明新版采集器已经收到响应**。报告单独展示实际保存的 `scan.version`、最近响应时间与历史；本版主采集器为 `g1-acq-v7.5.1`。旧脚本记录显示 **旧采集记录；尚未保存本版采集响应记录。** 版本未知或尚无记录时标为 **尚未保存本版采集响应记录**；旧记录未保存 `recentResponses` 时不补造活动历史，也不据此判断手机故障。
+`reportVersion=v7.5.2` 表示报告脚本版本，**不证明新版采集器已经收到响应**。报告单独展示实际保存的 `scan.version`、最近响应时间与历史；本版主采集器为 `g1-acq-v7.5.2`。旧脚本记录显示 **旧采集记录；尚未保存本版采集响应记录。** 版本未知或尚无记录时标为 **尚未保存本版采集响应记录**；旧记录未保存 `recentResponses` 时不补造活动历史，也不据此判断手机故障。
 
 | 采集字段 | 含义 |
 |---|---|
@@ -94,9 +94,9 @@ https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11
 
 单次事件中，`candidateCount` 是该响应内去重后的候选数，`addedCount` 是本次新加入并实际保留的 ID 数，`omittedCount` 是本次因容量丢弃的不同 ID 数。状态包括 `new-skus`（新增）、`known-skus`（重复）、`no-skus`（无 ID）、`limit-reached`（无新增保留且有容量丢弃）、`non-text`（非文本）。`addedCount>0` 时优先标为 `new-skus`，即使同时 `omittedCount>0`；只有 `addedCount=0` 且 `omittedCount>0` 时才标为 `limit-reached`。路径只保留 `/`、`/ai`、`/plans`、`/_/…/data/batchexecute` 或 `[其他 one.google.com 路径]`，不保存 query、完整 URL、正文、请求头或响应头。
 
-顶层 `configuredTarget=g1.2tb.ai.12months_ip_90p` 表示当前配置；`test.version`、`test.target` 则来自最近一次保存的执行记录，升级后仍会保留旧版本与实际保存的旧目标，直到产生新记录。当前响应脚本为 `g1-acq-v7.5.1`，新候选记录的 `test.targetOrigin=user-specified`。旧 v7.3 / v7.4 记录保留 `g1.2tb.ai.annual_ip_90p.acq` 与 `user-specified`；旧 v7.2 记录保留 `g1.2tb.ai.annual.3months_ip_90p.acq` 与 `pattern-derived`；旧 v1 / v7.1 普通年付记录保留 `g1.2tb.ai.annual` 与 `legacy`；无记录时来源为空。升级不会把历史 ID 或目标来源重标为当前候选。`test.target` 仅表示该次执行配置的 2TB 目标；20TB / 30TB 的实际目标看各行 `to`。
+顶层 `configuredTarget=g1.2tb.ai.12months_ip_90p` 表示当前配置；`test.version`、`test.target` 则来自最近一次保存的执行记录，升级后仍会保留旧版本与实际保存的旧目标，直到产生新记录。当前响应脚本为 `g1-acq-v7.5.2`，新候选记录的 `test.targetOrigin=user-specified`。旧 v7.3 / v7.4 记录保留 `g1.2tb.ai.annual_ip_90p.acq` 与 `user-specified`；旧 v7.2 记录保留 `g1.2tb.ai.annual.3months_ip_90p.acq` 与 `pattern-derived`；旧 v1 / v7.1 普通年付记录保留 `g1.2tb.ai.annual` 与 `legacy`；无记录时来源为空。升级不会把历史 ID 或目标来源重标为当前候选。`test.target` 仅表示该次执行配置的 2TB 目标；20TB / 30TB 的实际目标看各行 `to`。
 
-`test.hitCount` 是三档总改写数；`test.annualHitCount` 沿用兼容字段名，仅统计 2TB / Pro 优惠改写，日志 `annualHits` 含义相同，报告显示“其中 2TB”。字段名与计数不证明年付扣款。`test.matchedFrom` 每行含 `{id, to, count, fallback}`：`to` 是该源本次实际目标，`fallback=true` 在当前脚本中表示 20TB 使用 75p 备用档。HTML 按行显示实际目标和备用状态。
+`test.hitCount` 是三档总改写数；`test.annualHitCount` 沿用兼容字段名，仅统计 2TB / Pro 优惠改写，日志 `annualHits` 含义相同，报告显示“其中 2TB”。字段名与计数不证明年付扣款。`test.matchedFrom` 每行含 `{id, to, count, fallback}`：`to` 是该源本次实际目标，当前脚本生成的 `fallback` 均为 `false`；旧记录中的 `fallback=true` 仍按历史备用状态展示。HTML 按行显示实际目标和备用状态。
 
 `status=no-match` 仅表示三档都没命中，此时保留响应原样；若 2TB 没命中但 20TB / 30TB 命中，状态仍为 `rewritten`，须看 `annualHitCount` 判断 2TB 优惠改写。报告保留最近一次执行记录，按时间核对；根据采集结果确认完整源 ID，不推测新的 iOS SKU。报告兼容旧 v1 的仅 2TB 记录：旧行缺少 `to` 时补为原普通年付目标 `g1.2tb.ai.annual`，缺少的 `annualHitCount` 从旧行次数计算。旧 v1 / v7.1 执行记录继续显示 `g1.2tb.ai.annual`；旧 v7.2 记录继续显示实际保存的 `g1.2tb.ai.annual.3months_ip_90p.acq`；旧 v7.3 / v7.4 记录继续显示 `g1.2tb.ai.annual_ip_90p.acq`，这些旧目标都不会被当前候选替换。
 
@@ -104,11 +104,11 @@ https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11
 
 | 输出标记 | 含义 |
 |---|---|
-| `g1-acq-v7.5.1 status=<状态> addedCount=N candidates=N omittedCount=N occurrences=N saved=yes/no` | 采集状态、本次新保留数、单响应去重候选数、容量丢弃数、字符串出现总次数与存储结果；`saved=yes` 才表示本次记录已写入 |
+| `g1-acq-v7.5.2 status=<状态> addedCount=N candidates=N omittedCount=N occurrences=N saved=yes/no` | 采集状态、本次新保留数、单响应去重候选数、容量丢弃数、字符串出现总次数与存储结果；`saved=yes` 才表示本次记录已写入 |
 | `saved=no` / `SKU collection unavailable` | 本次记录写入未成功，或采集流程未完成；报告仍能显示旧计数与旧时间，须核对这类日志 |
-| `g1-acq-v7.5.1 hits=N annualHits=N` | 当前脚本版本、三档总改写数与其中 2TB / Pro 优惠改写数（兼容日志名，不证明年付扣款） |
+| `g1-acq-v7.5.2 hits=N annualHits=N` | 当前脚本版本、三档总改写数与其中 2TB / Pro 优惠改写数（兼容日志名，不证明年付扣款） |
 | `源 SKU → 实际目标 xN` | 逐行记录完整源 ID、本次实际目标与该源改写次数 |
-| `fallback=75p` | 该行 20TB 使用了正文中出现的 75p 备用档 |
+| 旧版日志 `fallback=75p` | 历史脚本曾选用 75p 备用档；当前固定映射不会产生此标记，报告仍保留旧记录的备用状态 |
 
 清单仍是旧 SKU 时，按下面顺序比较一次实际活动：
 
@@ -124,7 +124,7 @@ https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11
 | 工具 | 脚本匹配范围 | 行为 |
 |---|---|---|
 | G1 ACQ 被动采集 | `^https://one\.google\.com/` 的响应，跳过本地报告页 | 从原始文字正文采集候选 ID；非文本单独计数；保存最近 10 次响应诊断 |
-| G1 ACQ 三档改写 | `^https://one\.google\.com/ai\?` 的响应 | 采集后执行完整 SKU 改写、20TB 回退并保存最近执行记录 |
+| G1 ACQ 三档改写 | `^https://one\.google\.com/ai\?` 的响应 | 采集后执行完整 SKU 固定映射并保存最近执行记录 |
 | 本地结果页 | `/g1-sku-report`、末尾带 `/` 的同一路径及其 query | 本机显示采集结果、最近改写记录或导出 JSON |
 
 - **脚本处理范围**：G1 ACQ 被动读取匹配页面的响应体，先保存候选 ID、次数、时间、扫描状态与最多 10 条脱敏响应事件，再检查改写范围；不读取请求头或请求体，不保存完整响应正文。响应事件只保存时间、固定类别路径、正文类型、诊断状态与计数，不保存 query 或完整 URL。改写只修改商品 ID，不改价格字段，页面文字价格不替代 App Store 收银台金额。
@@ -132,15 +132,15 @@ https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11
 - **MITM 范围**：模块只追加 `one.google.com`，其全站流量进入解密范围；页面改写受脚本路径限制。证书在设备生成、安装与信任，HTTPS 解密设置属于当前配置。
 - **系统权限**：脚本没有申请定位、相册、通知的调用；使用过程包含小火箭 VPN 连接和 iOS 描述文件、根证书信任配置。
 - **全局规则影响**：模块的 `[Rule]` 拦截全局 UDP 443，促使支持回退的 QUIC 请求改走 TCP，也会影响其它 App 的 HTTP/3 使用、速度或连通性。
-- **版本与存储**：本次模块安装入口与全部内部脚本统一固定引用 `@v7.5.1`；历史 v1 / v2 标签保留且不移动。本地键仍为 `g1.sku.scan.v1`、`g1.pro.annual.test.v1`，`schemaVersion` 保持 `1`；结果页的 `?clear=1` 只清除这两个键。
+- **版本与存储**：本次模块安装入口与全部内部脚本统一固定引用 `@v7.5.2`；历史 v1 / v2 标签保留且不移动。本地键仍为 `g1.sku.scan.v1`、`g1.pro.annual.test.v1`，`schemaVersion` 保持 `1`；结果页的 `?clear=1` 只清除这两个键。
 
 ## 文件
 
 | 文件 | 用途 |
 |---|---|
 | [g1-acq-v7.sgmodule](g1-acq-v7.sgmodule) | 标准名称主模块：被动采集、三档改写与响应活动诊断 |
-| [g1-acq-nhoxloxchoi11.sgmodule](g1-acq-nhoxloxchoi11.sgmodule) | 个人命名入口：显示为 G1 ACQ - nhoxloxchoi11，使用同一套固定 v7.5.1 脚本，与标准入口任选其一 |
-| [g1-acq.js](g1-acq.js) | `g1-acq-v7.5.1` 响应脚本，先采集原始 SKU 与活动诊断，再改写并保存记录 |
+| [g1-acq-nhoxloxchoi11.sgmodule](g1-acq-nhoxloxchoi11.sgmodule) | 个人命名入口：显示为 G1 ACQ - nhoxloxchoi11，使用同一套固定 v7.5.2 脚本，与标准入口任选其一 |
+| [g1-acq.js](g1-acq.js) | `g1-acq-v7.5.2` 响应脚本，先采集原始 SKU 与活动诊断，再改写并保存记录 |
 | [g1-pro-annual-test.sgmodule](g1-pro-annual-test.sgmodule) | 旧版兼容文件，保留 `/ai?` 匹配范围，主流程无需安装或启用 |
 | [g1-sku-scan.sgmodule](g1-sku-scan.sgmodule) | 旧版独立扫描兼容文件，主流程无需安装或启用 |
 | [g1-sku-scan.js](g1-sku-scan.js) | 历史独立扫描脚本，保留候选 ID 去重、计数与时间记录；未增加响应活动诊断 |
@@ -155,4 +155,4 @@ https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11
 node --test tests/sku-tools.test.cjs
 ```
 
-离线检查以主脚本 [g1-acq.js](g1-acq.js) 为核心，覆盖三档完整编号匹配、2TB 固定 12个月优惠候选、30TB 固定 `g1.ai.ultra.1month_eft.acq` 目标、20TB 的 90p 优先和 75p 回退、20TB 目标与备用均缺失时使用默认 90p、只有 20TB / 30TB 的页面、URL 范围、三档零命中、总改写数与 2TB 改写数、逐行报告目标与备用状态、当前配置与最近执行目标区分、旧 v1 / v7.1 / v7.2 / v7.3 / v7.4 报告兼容、存储异常、采集去重与上限、本地报告、导出字段和模块脚本版本。以实际执行输出核对结果；测试中的源编号是合成样本，不构成商店上架或实机购买证据。
+离线检查以主脚本 [g1-acq.js](g1-acq.js) 为核心，覆盖三档完整编号匹配、2TB 固定 12个月优惠候选、20TB 固定 `g1.2tb.ai.18months_eft` 目标（无 `.acq`）、30TB 固定 `g1.ai.ultra.1month_eft.acq` 目标、旧 90p / 75p 字符串不影响当前映射、只有 20TB / 30TB 的页面、URL 范围、三档零命中、总改写数与 2TB 改写数、逐行报告目标与历史备用状态兼容、当前配置与最近执行目标区分、旧 v1 / v7.1 / v7.2 / v7.3 / v7.4 报告兼容、存储异常、采集去重与上限、本地报告、导出字段和模块脚本版本。以实际执行输出核对结果；测试中的源编号是合成样本，不构成商店上架或实机购买证据。

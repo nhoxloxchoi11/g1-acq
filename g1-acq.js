@@ -2,16 +2,13 @@
 "use strict";
 
 (function () {
-  var VERSION = "g1-acq-v7.5.1";
+  var VERSION = "g1-acq-v7.5.2";
   var SOURCE_PREFIX = "g1.ios.2tb.";
   // User-selected 12-month offer ID from the screenshot; store metadata is still unverified.
   var TARGET = "g1.2tb.ai.12months_ip_90p";
   var SKU_MAP = {
     "g1.ios.20tb.m.v2": "g1.2tb.ai.18months_eft",
     "g1.ios.30tb.ai.pro.m": "g1.ai.ultra.1month_eft.acq"
-  };
-  var FALLBACK = {
-    "g1.20tb.3months_ip_90p.acq": "g1.20tb.3months_ip_75p.acq"
   };
   var TEST_KEY = "g1.pro.annual.test.v1";
   var SCAN_KEY = "g1.sku.scan.v1";
@@ -44,9 +41,7 @@
   var out = body;
 
   if (typeof body === "string") {
-    // Preserve v6's 20TB fallback rule using the original response.
-    // These are observed strings, not a verified store catalog.
-    var observed = body.match(/g1\.[a-z0-9._]{2,60}acq/g) || [];
+    // Each source uses its configured fixed target.
     // Match complete tokens before selecting 2TB or the two existing source IDs.
     out = body.replace(
       /(^|[^A-Za-z0-9._@%-])(g1\.[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g,
@@ -58,10 +53,6 @@
           to = TARGET;
         } else if (Object.prototype.hasOwnProperty.call(SKU_MAP, id)) {
           to = SKU_MAP[id];
-          if (observed.indexOf(to) === -1 && FALLBACK[to] && observed.indexOf(FALLBACK[to]) !== -1) {
-            to = FALLBACK[to];
-            fallback = true;
-          }
         } else {
           return match;
         }

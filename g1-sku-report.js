@@ -3,8 +3,8 @@
 
 (function () {
   var ROOT = "https://one.google.com/g1-sku-report";
-  var VERSION = "v7.5.1";
-  var COLLECTOR_VERSION = "g1-acq-v7.5.1";
+  var VERSION = "v7.5.2";
+  var COLLECTOR_VERSION = "g1-acq-v7.5.2";
   var CONFIGURED_TARGET = "g1.2tb.ai.12months_ip_90p";
   var LEGACY_TARGET = "g1.2tb.ai.annual";
   var SCAN_KEY = "g1.sku.scan.v1";
@@ -226,7 +226,7 @@
     "<p>当前配置的 2TB 候选目标：<code>" + CONFIGURED_TARGET + "</code></p>",
     "<p class=note>本版按指定 12months_ip_90p 编号测试，完整目标以 _ip_90p 结尾；实际商品、价格与扣款周期查看 App Store 购买面板。</p>",
     "<p>版本：" + escape(report.test.version || "暂无") + "<br>状态：" + escape(status) + "；总替换次数：" + report.test.hitCount + "；其中 2TB：" + report.test.annualHitCount + "</p>",
-    "<p>2TB 源前缀：<code>g1.ios.2tb.</code><br>该次记录的 2TB 目标：<code>" + escape(report.test.target || "暂无记录") + "</code><br>20TB 沿用旧优惠映射与 75p 回退；30TB 固定目标为 g1.ai.ultra.1month_eft.acq；该次记录的各档实际目标见下表。<br>执行时间（UTC）：" + escape(report.test.updatedAt || "暂无") + "</p>",
+    "<p>2TB 源前缀：<code>g1.ios.2tb.</code><br>该次记录的 2TB 目标：<code>" + escape(report.test.target || "暂无记录") + "</code><br>20TB 固定目标为 g1.2tb.ai.18months_eft；30TB 固定目标为 g1.ai.ultra.1month_eft.acq；该次记录的各档实际目标见下表。<br>执行时间（UTC）：" + escape(report.test.updatedAt || "暂无") + "</p>",
     "<p class=note>这里记录的是脚本执行结果；商品是否被 App Store 识别、价格和周期需查看购买面板。</p>",
     table(report.test.matchedFrom, false), "</section>",
     "<section><h2>浏览页面时采集到的候选 SKU</h2>",
