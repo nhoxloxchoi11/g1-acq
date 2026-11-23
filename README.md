@@ -20,7 +20,15 @@ https://cdn.jsdelivr.net/gh/nhoxloxchoi11/g1-acq@v7.5.1/g1-acq-v7.sgmodule
 
 首次安装时在小火箭模块管理中添加上面的地址并启用；从旧版本升级时，将旧 **G1 ACQ** 替换为此地址一次。模块安装入口与内部响应、报告脚本均固定引用 `@v7.5.1`，无需单独添加脚本；安装或升级后重新连接，再重新进入 Google App 的订阅页。升级保留本地历史记录；响应诊断不保证产生新 ID，重复安装也不会促使服务器下发新 SKU。
 
-只开启这一个 **G1 ACQ** 即可。若手机曾安装独立 **G1 SKU Scan**、**G1 Pro Annual Test** 或其它改写副本，停用这些旧副本，避免重复计数或改写；只装了一个主模块时没有额外关闭步骤。历史 `v7.0.0` / `v7.1.0` / `v7.2.0` / `v7.3.0` / `v7.4.0`、`pro-annual-test-v1` / `pro-annual-test-v2` 标签保持不动。
+**个人命名安装入口：G1 ACQ - nhoxloxchoi11**
+
+```text
+https://raw.githubusercontent.com/nhoxloxchoi11/g1-acq/main/g1-acq-nhoxloxchoi11.sgmodule
+```
+
+此入口以独立名称显示，方便在模块列表中识别。安装后，先停用旧 **G1 ACQ**、**G1 Pro Annual Test**、**G1 SKU Scan** 及其它兼容改写模块，再启用 **G1 ACQ - nhoxloxchoi11** 并重新连接。个人命名入口与上方入口使用同一套固定 `v7.5.1` 响应、报告脚本。
+
+两个安装入口任选其一，仅开启所选主模块即可。若手机曾安装独立 **G1 SKU Scan**、**G1 Pro Annual Test** 或其它改写副本，停用这些旧副本，避免重复计数或改写；只装了一个主模块时没有额外关闭步骤。历史 `v7.0.0` / `v7.1.0` / `v7.2.0` / `v7.3.0` / `v7.4.0`、`pro-annual-test-v1` / `pro-annual-test-v2` 标签保持不动。
 
 最近 10 次响应诊断由主脚本 `g1-acq-v7.5.1` 提供；**G1 Pro Annual Test** 兼容入口也使用该脚本，但仍仅匹配 `/ai?`。独立 **G1 SKU Scan** 兼容入口只更新下载 pin，脚本继续保存历史版本 `pro-annual-test-v2`，没有新增活动诊断；新版报告读取它时显示 **旧采集记录**，响应历史为空。
 
@@ -130,7 +138,8 @@ https://cdn.jsdelivr.net/gh/nhoxloxchoi11/g1-acq@v7.5.1/g1-acq-v7.sgmodule
 
 | 文件 | 用途 |
 |---|---|
-| [g1-acq-v7.sgmodule](g1-acq-v7.sgmodule) | 唯一主模块：被动采集、三档改写与响应活动诊断 |
+| [g1-acq-v7.sgmodule](g1-acq-v7.sgmodule) | 标准名称主模块：被动采集、三档改写与响应活动诊断 |
+| [g1-acq-nhoxloxchoi11.sgmodule](g1-acq-nhoxloxchoi11.sgmodule) | 个人命名入口：显示为 G1 ACQ - nhoxloxchoi11，使用同一套固定 v7.5.1 脚本，与标准入口任选其一 |
 | [g1-acq.js](g1-acq.js) | `g1-acq-v7.5.1` 响应脚本，先采集原始 SKU 与活动诊断，再改写并保存记录 |
 | [g1-pro-annual-test.sgmodule](g1-pro-annual-test.sgmodule) | 旧版兼容文件，保留 `/ai?` 匹配范围，主流程无需安装或启用 |
 | [g1-sku-scan.sgmodule](g1-sku-scan.sgmodule) | 旧版独立扫描兼容文件，主流程无需安装或启用 |
