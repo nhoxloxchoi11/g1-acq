@@ -3,8 +3,8 @@
 
 (function () {
   var ROOT = "https://one.google.com/g1-sku-report";
-  var VERSION = "v7.5.2";
-  var COLLECTOR_VERSION = "g1-acq-v7.5.2";
+  var VERSION = "v7.5.3";
+  var COLLECTOR_VERSION = "g1-acq-v7.5.3";
   var CONFIGURED_TARGET = "g1.2tb.ai.12months_ip_90p";
   var LEGACY_TARGET = "g1.2tb.ai.annual";
   var SCAN_KEY = "g1.sku.scan.v1";
@@ -193,7 +193,7 @@
     report.scan.version ? "旧采集记录；尚未保存本版采集响应记录。" : "尚未保存本版采集响应记录。";
   var statuses = {
     "rewritten": "已执行字符串替换",
-    "no-match": "本次响应未命中三档映射中的源商品",
+    "no-match": "本次响应未命中配置映射中的源商品",
     "non-text": "本次响应没有可处理的文本正文"
   };
   var status = Object.prototype.hasOwnProperty.call(statuses, report.test.status) ?
@@ -209,7 +209,7 @@
     "<p class=badge>本机脚本已接管 · " + VERSION + "</p>",
     "<nav class=actions aria-label=报告操作><form method=get action=\"" + ROOT + "\"><button type=submit name=format value=json>导出 JSON</button></form><a href=\"" + ROOT + "\">刷新报告</a></nav>",
     "<p class=note>此页由当前设备的 Shadowrocket 生成；地址栏沿用 one.google.com，采集记录保存在当前设备。</p>",
-    "<p class=note>保持一个 G1 ACQ 模块开启即可：先采集原始响应中的编号，再执行三档改写。</p>",
+    "<p class=note>保持一个 G1 ACQ 模块开启即可：先采集原始响应中的编号，再执行 SKU 映射。</p>",
     clearMessage ? "<p>" + escape(clearMessage) + "</p>" : "",
     storageAvailable ? "" : "<p>本地存储接口暂未就绪；此页尚未读取到采集记录。</p>",
     "<section><h2>采集运行记录</h2>",
@@ -222,11 +222,11 @@
     "<p class=note>累计清单按编号去重；收到相同编号会更新次数，清单条数保持不变。先记录计数和时间，重新打开 Google App 方案页，再刷新本报告对照。</p>",
     "<h3>最近 10 次响应</h3>", recentTable(report.scan.recentResponses),
     "<p class=note>计数增加且显示重复编号，表示已收到响应；时间和计数保持原值，表示尚无新的匹配响应记录，可核对页面缓存、模块开关、HTTPS 解密、请求域名与脚本日志中的 saved=no。路径仅保存分类。</p></section>",
-    "<section><h2>最近一次三档映射</h2>",
-    "<p>当前配置的 2TB 候选目标：<code>" + CONFIGURED_TARGET + "</code></p>",
-    "<p class=note>本版按指定 12months_ip_90p 编号测试，完整目标以 _ip_90p 结尾；实际商品、价格与扣款周期查看 App Store 购买面板。</p>",
+    "<section><h2>最近一次 SKU 映射</h2>",
+    "<p>当前配置的原 2TB 入口目标：<code>" + CONFIGURED_TARGET + "</code></p>",
+    "<p class=note>原 g1.ios.2tb. 入口使用 12months_ip_90p 目标；新增精确 2TB 入口使用 12months_eft 目标。各入口的实际目标见下表；实际商品、价格与扣款周期查看 App Store 购买面板。</p>",
     "<p>版本：" + escape(report.test.version || "暂无") + "<br>状态：" + escape(status) + "；总替换次数：" + report.test.hitCount + "；其中 2TB：" + report.test.annualHitCount + "</p>",
-    "<p>2TB 源前缀：<code>g1.ios.2tb.</code><br>该次记录的 2TB 目标：<code>" + escape(report.test.target || "暂无记录") + "</code><br>20TB 固定目标为 g1.2tb.ai.18months_eft；30TB 固定目标为 g1.ai.ultra.1month_eft.acq；该次记录的各档实际目标见下表。<br>执行时间（UTC）：" + escape(report.test.updatedAt || "暂无") + "</p>",
+    "<p>原 2TB 源前缀：<code>g1.ios.2tb.</code><br>该次记录的原 2TB 入口目标：<code>" + escape(report.test.target || "暂无记录") + "</code><br>新增完整源 g1.ios.ai.2tb.m.ip_1mo_90p.acq 固定目标为 g1.2tb.ai.12months_eft；20TB 固定目标为 g1.2tb.ai.18months_eft；30TB 固定目标为 g1.ai.ultra.1month_eft.acq；该次记录的各入口实际目标见下表。<br>执行时间（UTC）：" + escape(report.test.updatedAt || "暂无") + "</p>",
     "<p class=note>这里记录的是脚本执行结果；商品是否被 App Store 识别、价格和周期需查看购买面板。</p>",
     table(report.test.matchedFrom, false), "</section>",
     "<section><h2>浏览页面时采集到的候选 SKU</h2>",

@@ -14,6 +14,8 @@ const REPORT = "https://one.google.com/g1-sku-report";
 // Fixture source IDs test the matching contract; they are not store catalog evidence.
 const SOURCE = "g1.ios.2tb.fixture_monthly";
 const OTHER_SOURCE = "g1.ios.2tb.fixture_annual";
+const EXACT_TWO_TB_SOURCE = "g1.ios.ai.2tb.m.ip_1mo_90p.acq";
+const EXACT_TWO_TB_TARGET = "g1.2tb.ai.12months_eft";
 const TWENTY = "g1.ios.20tb.m.v2";
 const THIRTY = "g1.ios.30tb.ai.pro.m";
 const TWENTY_TARGET = "g1.2tb.ai.18months_eft";
@@ -67,26 +69,35 @@ function get(storage, key) {
   return JSON.parse(storage.get(key));
 }
 
-test("combined module maps 2TB, 20TB and 30TB while preserving unrelated full tokens", () => {
+test("both rewrite scripts map the exact and prefix 2TB sources while preserving full-token boundaries", () => {
   const untouched = [
     "g1.ios.12tb.fixture", TWENTY + ".extra", THIRTY + ".extra",
     "g1.ios.2tbx.fixture", "prefix" + SOURCE, "x." + SOURCE,
-    "person@" + SOURCE, "g1.2tb", TARGET
+    "person@" + SOURCE, "g1.2tb", TARGET, EXACT_TWO_TB_TARGET,
+    EXACT_TWO_TB_SOURCE + ".extra", "prefix" + EXACT_TWO_TB_SOURCE,
+    "x." + EXACT_TWO_TB_SOURCE, "person@" + EXACT_TWO_TB_SOURCE
   ];
-  const values = [SOURCE, OTHER_SOURCE, SOURCE, TWENTY, THIRTY, ...untouched];
-  const result = run("g1-acq.js", { body: JSON.stringify(values) });
-  assert.deepEqual(JSON.parse(result.payload.body), [TARGET, TARGET, TARGET, TWENTY_TARGET, THIRTY_TARGET, ...untouched]);
-  const record = get(result.storage, TEST_KEY);
-  assert.equal(record.hitCount, 5);
-  assert.equal(record.annualHitCount, 3);
-  assert.equal(record.status, "rewritten");
-  assert.equal(record.version, "g1-acq-v7.5.2");
-  assert.deepEqual(record.matchedFrom, [
-    { id: TWENTY, to: TWENTY_TARGET, count: 1, fallback: false },
-    { id: OTHER_SOURCE, to: TARGET, count: 1, fallback: false },
-    { id: SOURCE, to: TARGET, count: 2, fallback: false },
-    { id: THIRTY, to: THIRTY_TARGET, count: 1, fallback: false }
-  ]);
+  const values = [SOURCE, OTHER_SOURCE, SOURCE, EXACT_TWO_TB_SOURCE, EXACT_TWO_TB_SOURCE, TWENTY, THIRTY, ...untouched];
+  for (const [name, prefixTarget, version] of [
+    ["g1-acq.js", TARGET, "g1-acq-v7.5.3"],
+    ["g1-pro-annual-test.js", LEGACY_TARGET, "pro-annual-test-v2"]
+  ]) {
+    const result = run(name, { body: JSON.stringify(values) });
+    assert.deepEqual(JSON.parse(result.payload.body), [prefixTarget, prefixTarget, prefixTarget, EXACT_TWO_TB_TARGET, EXACT_TWO_TB_TARGET, TWENTY_TARGET, THIRTY_TARGET, ...untouched], name);
+    const record = get(result.storage, TEST_KEY);
+    assert.equal(record.hitCount, 7);
+    assert.equal(record.annualHitCount, 5);
+    assert.equal(record.status, "rewritten");
+    assert.equal(record.version, version);
+    assert.equal(record.target, prefixTarget);
+    assert.deepEqual(record.matchedFrom, [
+      { id: TWENTY, to: TWENTY_TARGET, count: 1, fallback: false },
+      { id: OTHER_SOURCE, to: prefixTarget, count: 1, fallback: false },
+      { id: SOURCE, to: prefixTarget, count: 2, fallback: false },
+      { id: THIRTY, to: THIRTY_TARGET, count: 1, fallback: false },
+      { id: EXACT_TWO_TB_SOURCE, to: EXACT_TWO_TB_TARGET, count: 2, fallback: false }
+    ]);
+  }
 });
 
 test("empty responses or responses with no configured sources pass through", () => {
@@ -125,14 +136,15 @@ test("20TB and 30TB targets stay fixed across all current and legacy offer combi
   }
 });
 
-test("all three mappings retain their fixed targets when legacy offers are present", () => {
-  const body = JSON.stringify([SOURCE, TWENTY, THIRTY, LEGACY_TWENTY_TARGET, LEGACY_TWENTY_FALLBACK, LEGACY_THIRTY_FALLBACK]);
+test("all configured mappings retain their fixed targets when legacy offers are present", () => {
+  const body = JSON.stringify([SOURCE, TWENTY, THIRTY, EXACT_TWO_TB_SOURCE, LEGACY_TWENTY_TARGET, LEGACY_TWENTY_FALLBACK, LEGACY_THIRTY_FALLBACK]);
   const result = run("g1-acq.js", { body });
-  assert.deepEqual(JSON.parse(result.payload.body).slice(0, 3), [TARGET, TWENTY_TARGET, THIRTY_TARGET]);
+  assert.deepEqual(JSON.parse(result.payload.body).slice(0, 4), [TARGET, TWENTY_TARGET, THIRTY_TARGET, EXACT_TWO_TB_TARGET]);
   const rows = get(result.storage, TEST_KEY).matchedFrom;
   assert.deepEqual(rows.find(row => row.id === SOURCE), { id: SOURCE, to: TARGET, count: 1, fallback: false });
   assert.deepEqual(rows.find(row => row.id === TWENTY), { id: TWENTY, to: TWENTY_TARGET, count: 1, fallback: false });
   assert.deepEqual(rows.find(row => row.id === THIRTY), { id: THIRTY, to: THIRTY_TARGET, count: 1, fallback: false });
+  assert.deepEqual(rows.find(row => row.id === EXACT_TWO_TB_SOURCE), { id: EXACT_TWO_TB_SOURCE, to: EXACT_TWO_TB_TARGET, count: 1, fallback: false });
 });
 
 test("single module collects other Google pages without changing the last mapping record", () => {
@@ -158,13 +170,14 @@ test("single module collects other Google pages without changing the last mappin
 });
 
 test("single module saves original candidates before rewriting without recording generated targets", () => {
-  const body = JSON.stringify([SOURCE, SOURCE, TWENTY, THIRTY, "com.google.one.fixture"]);
+  const body = JSON.stringify([SOURCE, SOURCE, EXACT_TWO_TB_SOURCE, EXACT_TWO_TB_SOURCE, TWENTY, THIRTY, "com.google.one.fixture"]);
   const result = run("g1-acq.js", { body });
-  assert.deepEqual(JSON.parse(result.payload.body), [TARGET, TARGET, TWENTY_TARGET, THIRTY_TARGET, "com.google.one.fixture"]);
+  assert.deepEqual(JSON.parse(result.payload.body), [TARGET, TARGET, EXACT_TWO_TB_TARGET, EXACT_TWO_TB_TARGET, TWENTY_TARGET, THIRTY_TARGET, "com.google.one.fixture"]);
   const scan = get(result.storage, SCAN_KEY);
-  assert.equal(scan.version, "g1-acq-v7.5.2");
-  assert.deepEqual(scan.skus.map(row => row.id), ["com.google.one.fixture", TWENTY, SOURCE, THIRTY]);
+  assert.equal(scan.version, "g1-acq-v7.5.3");
+  assert.deepEqual(scan.skus.map(row => row.id), ["com.google.one.fixture", TWENTY, SOURCE, THIRTY, EXACT_TWO_TB_SOURCE]);
   assert.equal(scan.skus.find(row => row.id === SOURCE).count, 2);
+  assert.equal(scan.skus.find(row => row.id === EXACT_TWO_TB_SOURCE).count, 2);
   assert.deepEqual(result.writes, [SCAN_KEY, TEST_KEY]);
 });
 
@@ -228,7 +241,7 @@ test("activity distinguishes new IDs, repeated IDs, empty text and nontext respo
   assert.deepEqual(data.scan.recentResponses, scan.recentResponses);
   assert.equal(data.scan.nonTextResponses, 1);
   const html = run("g1-sku-report.js", { url: REPORT, storage }).payload.response.body;
-  assert(html.includes("实际采集脚本：<code>g1-acq-v7.5.2</code>"));
+  assert(html.includes("实际采集脚本：<code>g1-acq-v7.5.3</code>"));
   assert(html.includes("编号与已有记录重复"));
   assert(html.includes("正文不是可扫描文本"));
 });
@@ -277,7 +290,7 @@ test("old scan records remain old until an actual response creates a new diagnos
   assert(html.includes("旧采集记录；尚未保存本版采集响应记录"));
   run("g1-acq.js", { url: "https://one.google.com/plans", body: SOURCE, storage });
   data = JSON.parse(run("g1-sku-report.js", { url: REPORT + "?format=json", storage }).payload.response.body);
-  assert.equal(data.scan.version, "g1-acq-v7.5.2");
+  assert.equal(data.scan.version, "g1-acq-v7.5.3");
   assert.equal(data.scan.scannedResponses, 6);
   assert.equal(data.scan.matchedResponses, 2);
   assert.equal(data.scan.skus.length, 1);
@@ -293,7 +306,7 @@ test("activity export rejects malformed metadata and excludes untrusted extra fi
     candidateCount: 2, addedCount: 0, omittedCount: 0, body: "private-body", query: "private-token"
   };
   const storage = new Map([[SCAN_KEY, JSON.stringify({
-    schemaVersion: 1, version: "g1-acq-v7.5.2",
+    schemaVersion: 1, version: "g1-acq-v7.5.3",
     recentResponses: [event, { ...event, at: "<script>private</script>" }, { ...event, status: "constructor" }, { ...event, bodyType: "unknown" }]
   })]]);
   const result = run("g1-sku-report.js", { url: REPORT + "?format=json", storage });
@@ -387,7 +400,7 @@ test("report displays captured IDs and test sources without external assets", ()
   assert.match(payload.response.body, /Google One SKU 本地报告/);
   assert(payload.response.body.includes(SOURCE));
   assert(payload.response.body.includes(TARGET));
-  assert(payload.response.body.includes("本机脚本已接管 · v7.5.2"));
+  assert(payload.response.body.includes("本机脚本已接管 · v7.5.3"));
   assert.match(payload.response.body, /<button\b[^>]*name=format[^>]*value=json[^>]*>导出 JSON<\/button>/);
   assert(!/<(?:script|img|iframe)\b/i.test(payload.response.body));
   assert.equal(payload.response.headers["Cache-Control"], "no-store");
@@ -406,28 +419,32 @@ test("report export form resolves to a JSON attachment and supports a trailing s
     const result = run("g1-sku-report.js", { url: exportURL, storage });
     assert.equal(result.payload.response.status, 200);
     assert.equal(result.payload.response.headers["Content-Disposition"], 'attachment; filename="g1-sku-report.json"');
-    assert.equal(result.payload.response.headers["X-G1-Report-Version"], "v7.5.2");
+    assert.equal(result.payload.response.headers["X-G1-Report-Version"], "v7.5.3");
     const data = JSON.parse(result.payload.response.body);
-    assert.equal(data.reportVersion, "v7.5.2");
+    assert.equal(data.reportVersion, "v7.5.3");
     assert.equal(data.configuredTarget, TARGET);
     assert.equal(data.test.target, TARGET);
     assert.equal(data.test.targetOrigin, "user-specified");
     assert.equal(data.scan.skus[0].id, SOURCE);
     assert.equal(data.test.matchedFrom[0].to, TARGET);
-    assert(result.logs.some(line => line.includes("[g1-sku-report] v7.5.2 json")));
+    assert(result.logs.some(line => line.includes("[g1-sku-report] v7.5.3 json")));
   }
 });
 
 test("report exports each actual target and separates annual hits from total hits", () => {
   const storage = new Map();
   run("g1-acq.js", {
-    body: JSON.stringify([SOURCE, TWENTY, THIRTY, LEGACY_TWENTY_FALLBACK, LEGACY_THIRTY_FALLBACK]), storage
+    body: JSON.stringify([SOURCE, EXACT_TWO_TB_SOURCE, EXACT_TWO_TB_SOURCE, TWENTY, THIRTY, LEGACY_TWENTY_FALLBACK, LEGACY_THIRTY_FALLBACK]), storage
   });
   const result = run("g1-sku-report.js", { url: REPORT + "?format=json", storage });
   const data = JSON.parse(result.payload.response.body).test;
-  assert.equal(data.version, "g1-acq-v7.5.2");
-  assert.equal(data.hitCount, 3);
-  assert.equal(data.annualHitCount, 1);
+  assert.equal(data.version, "g1-acq-v7.5.3");
+  assert.equal(data.hitCount, 5);
+  assert.equal(data.annualHitCount, 3);
+  assert.equal(data.target, TARGET);
+  assert.deepEqual(data.matchedFrom.find(row => row.id === EXACT_TWO_TB_SOURCE), {
+    id: EXACT_TWO_TB_SOURCE, count: 2, to: EXACT_TWO_TB_TARGET, fallback: false
+  });
   assert.deepEqual(data.matchedFrom.find(row => row.id === TWENTY), {
     id: TWENTY, count: 1, to: TWENTY_TARGET, fallback: false
   });
@@ -435,8 +452,9 @@ test("report exports each actual target and separates annual hits from total hit
     id: THIRTY, count: 1, to: THIRTY_TARGET, fallback: false
   });
   const html = run("g1-sku-report.js", { url: REPORT, storage }).payload.response.body;
-  assert(html.includes("最近一次三档映射"));
-  assert(html.includes("其中 2TB：1"));
+  assert(html.includes("最近一次 SKU 映射"));
+  assert(html.includes("其中 2TB：3"));
+  assert(html.includes(EXACT_TWO_TB_TARGET));
   assert(html.includes(TWENTY_TARGET));
   assert(html.includes(THIRTY_TARGET));
 });
@@ -485,8 +503,8 @@ test("report preserves saved v7.1 through v7.4 targets and origins independently
     assert.equal(data.test.matchedFrom[0].to, prior.target);
     assert.equal(storage.get(TEST_KEY), before);
     const html = run("g1-sku-report.js", { url: REPORT, storage }).payload.response.body;
-    assert(html.includes("当前配置的 2TB 候选目标：<code>" + TARGET + "</code>"));
-    assert(html.includes("该次记录的 2TB 目标：<code>" + prior.target + "</code>"));
+    assert(html.includes("当前配置的原 2TB 入口目标：<code>" + TARGET + "</code>"));
+    assert(html.includes("该次记录的原 2TB 入口目标：<code>" + prior.target + "</code>"));
   }
   const empty = JSON.parse(run("g1-sku-report.js", { url: REPORT + "?format=json" }).payload.response.body);
   assert.equal(empty.configuredTarget, TARGET);
@@ -545,7 +563,7 @@ test("the new installer replaces the old entry and all modules share one fixed r
     if (file === "g1-acq-nhoxloxchoi11.sgmodule") assert.match(module, /^#!name=G1 ACQ - nhoxloxchoi11$/m);
     for (const script of scripts) {
       const url = script.match(/script-path=([^,\s]+)/)[1];
-      assert.match(url, /^https:\/\/cdn\.jsdelivr\.net\/gh\/nhoxloxchoi11\/g1-acq@v7\.5\.2\/[a-z0-9.-]+\.js$/);
+      assert.match(url, /^https:\/\/cdn\.jsdelivr\.net\/gh\/nhoxloxchoi11\/g1-acq@v7\.5\.3\/[a-z0-9.-]+\.js$/);
       const base = url.slice(0, url.lastIndexOf("/") + 1);
       if (!scriptBase) scriptBase = base;
       assert.equal(base, scriptBase);

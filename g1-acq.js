@@ -2,11 +2,12 @@
 "use strict";
 
 (function () {
-  var VERSION = "g1-acq-v7.5.2";
+  var VERSION = "g1-acq-v7.5.3";
   var SOURCE_PREFIX = "g1.ios.2tb.";
   // User-selected 12-month offer ID from the screenshot; store metadata is still unverified.
   var TARGET = "g1.2tb.ai.12months_ip_90p";
   var SKU_MAP = {
+    "g1.ios.ai.2tb.m.ip_1mo_90p.acq": "g1.2tb.ai.12months_eft",
     "g1.ios.20tb.m.v2": "g1.2tb.ai.18months_eft",
     "g1.ios.30tb.ai.pro.m": "g1.ai.ultra.1month_eft.acq"
   };
@@ -42,7 +43,7 @@
 
   if (typeof body === "string") {
     // Each source uses its configured fixed target.
-    // Match complete tokens before selecting 2TB or the two existing source IDs.
+    // Match complete tokens before selecting the 2TB prefix or an exact source ID.
     out = body.replace(
       /(^|[^A-Za-z0-9._@%-])(g1\.[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g,
       function (match, before, id) {
@@ -59,7 +60,7 @@
         if (!mappings[id]) mappings[id] = { id: id, to: to, count: 0, fallback: fallback };
         mappings[id].count += 1;
         hits += 1;
-        if (isAnnual) annualHits += 1;
+        if (isAnnual || id === "g1.ios.ai.2tb.m.ip_1mo_90p.acq") annualHits += 1;
         return before + to;
       }
     );
