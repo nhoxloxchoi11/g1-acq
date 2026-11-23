@@ -17,11 +17,12 @@ const OTHER_SOURCE = "g1.ios.2tb.fixture_annual";
 const TWENTY = "g1.ios.20tb.m.v2";
 const THIRTY = "g1.ios.30tb.ai.pro.m";
 const TWENTY_TARGET = "g1.20tb.3months_ip_90p.acq";
-const THIRTY_TARGET = "g1.ai.ultra.3months_ip_90p.acq";
+const THIRTY_TARGET = "g1.ai.ultra.1month_eft.acq";
 const TWENTY_FALLBACK = "g1.20tb.3months_ip_75p.acq";
-const THIRTY_FALLBACK = "g1.ai.ultra.3months_ip_75p.acq";
+const LEGACY_THIRTY_TARGET = "g1.ai.ultra.3months_ip_90p.acq";
+const LEGACY_THIRTY_FALLBACK = "g1.ai.ultra.3months_ip_75p.acq";
 const source = Object.fromEntries(
-  ["g1-acq.js", "tests/fixtures/g1-acq-v6.js", "g1-sku-scan.js", "g1-sku-report.js"].map(name =>
+  ["g1-acq.js", "g1-pro-annual-test.js", "tests/fixtures/g1-acq-v6.js", "g1-sku-scan.js", "g1-sku-report.js"].map(name =>
     [name, fs.readFileSync(path.join(root, name), "utf8")])
 );
 
@@ -78,7 +79,7 @@ test("combined module maps 2TB, 20TB and 30TB while preserving unrelated full to
   assert.equal(record.hitCount, 5);
   assert.equal(record.annualHitCount, 3);
   assert.equal(record.status, "rewritten");
-  assert.equal(record.version, "g1-acq-v7.5");
+  assert.equal(record.version, "g1-acq-v7.5.1");
   assert.deepEqual(record.matchedFrom, [
     { id: TWENTY, to: TWENTY_TARGET, count: 1, fallback: false },
     { id: OTHER_SOURCE, to: TARGET, count: 1, fallback: false },
@@ -100,29 +101,36 @@ test("empty responses or responses with no configured sources pass through", () 
   }
 });
 
-test("20TB and 30TB fallback results agree with the original v6 across all offer combinations", () => {
-  const offers = [TWENTY_TARGET, THIRTY_TARGET, TWENTY_FALLBACK, THIRTY_FALLBACK];
-  for (let mask = 0; mask < 16; mask++) {
+test("20TB preserves v6 fallback while 30TB stays fixed across all offer combinations", () => {
+  const offers = [TWENTY_TARGET, TWENTY_FALLBACK, LEGACY_THIRTY_TARGET, LEGACY_THIRTY_FALLBACK, THIRTY_TARGET];
+  for (let mask = 0; mask < 32; mask++) {
     const observed = offers.filter((_, index) => mask & (1 << index));
     const body = JSON.stringify([TWENTY, THIRTY, TWENTY, ...observed]);
     const legacy = run("tests/fixtures/g1-acq-v6.js", { body });
-    const combined = run("g1-acq.js", { body });
-    assert.equal(combined.payload.body, legacy.payload.body, "offer mask=" + mask);
-    const record = get(combined.storage, TEST_KEY);
-    assert.equal(record.hitCount, 3);
-    assert.equal(record.annualHitCount, 0);
-    assert.equal(record.status, "rewritten");
+    const expected = JSON.parse(legacy.payload.body);
+    expected[1] = THIRTY_TARGET;
+    for (const name of ["g1-acq.js", "g1-pro-annual-test.js"]) {
+      const result = run(name, { body });
+      assert.deepEqual(JSON.parse(result.payload.body), expected, name + " offer mask=" + mask);
+      const record = get(result.storage, TEST_KEY);
+      assert.equal(record.hitCount, 3);
+      assert.equal(record.annualHitCount, 0);
+      assert.equal(record.status, "rewritten");
+      assert.deepEqual(record.matchedFrom.find(row => row.id === THIRTY), {
+        id: THIRTY, to: THIRTY_TARGET, count: 1, fallback: false
+      });
+    }
   }
 });
 
-test("fallback decisions are independent and the 2TB target stays fixed", () => {
-  const body = JSON.stringify([SOURCE, TWENTY, THIRTY, TWENTY_TARGET, TWENTY_FALLBACK, THIRTY_FALLBACK]);
+test("20TB prefers its default while the 2TB and 30TB targets stay fixed", () => {
+  const body = JSON.stringify([SOURCE, TWENTY, THIRTY, TWENTY_TARGET, TWENTY_FALLBACK, LEGACY_THIRTY_FALLBACK]);
   const result = run("g1-acq.js", { body });
-  assert.deepEqual(JSON.parse(result.payload.body).slice(0, 3), [TARGET, TWENTY_TARGET, THIRTY_FALLBACK]);
+  assert.deepEqual(JSON.parse(result.payload.body).slice(0, 3), [TARGET, TWENTY_TARGET, THIRTY_TARGET]);
   const rows = get(result.storage, TEST_KEY).matchedFrom;
   assert.deepEqual(rows.find(row => row.id === SOURCE), { id: SOURCE, to: TARGET, count: 1, fallback: false });
   assert.deepEqual(rows.find(row => row.id === TWENTY), { id: TWENTY, to: TWENTY_TARGET, count: 1, fallback: false });
-  assert.deepEqual(rows.find(row => row.id === THIRTY), { id: THIRTY, to: THIRTY_FALLBACK, count: 1, fallback: true });
+  assert.deepEqual(rows.find(row => row.id === THIRTY), { id: THIRTY, to: THIRTY_TARGET, count: 1, fallback: false });
 });
 
 test("single module collects other Google pages without changing the last mapping record", () => {
@@ -152,7 +160,7 @@ test("single module saves original candidates before rewriting without recording
   const result = run("g1-acq.js", { body });
   assert.deepEqual(JSON.parse(result.payload.body), [TARGET, TARGET, TWENTY_TARGET, THIRTY_TARGET, "com.google.one.fixture"]);
   const scan = get(result.storage, SCAN_KEY);
-  assert.equal(scan.version, "g1-acq-v7.5");
+  assert.equal(scan.version, "g1-acq-v7.5.1");
   assert.deepEqual(scan.skus.map(row => row.id), ["com.google.one.fixture", TWENTY, SOURCE, THIRTY]);
   assert.equal(scan.skus.find(row => row.id === SOURCE).count, 2);
   assert.deepEqual(result.writes, [SCAN_KEY, TEST_KEY]);
@@ -218,7 +226,7 @@ test("activity distinguishes new IDs, repeated IDs, empty text and nontext respo
   assert.deepEqual(data.scan.recentResponses, scan.recentResponses);
   assert.equal(data.scan.nonTextResponses, 1);
   const html = run("g1-sku-report.js", { url: REPORT, storage }).payload.response.body;
-  assert(html.includes("实际采集脚本：<code>g1-acq-v7.5</code>"));
+  assert(html.includes("实际采集脚本：<code>g1-acq-v7.5.1</code>"));
   assert(html.includes("编号与已有记录重复"));
   assert(html.includes("正文不是可扫描文本"));
 });
@@ -267,7 +275,7 @@ test("old scan records remain old until an actual response creates a new diagnos
   assert(html.includes("旧采集记录；尚未保存本版采集响应记录"));
   run("g1-acq.js", { url: "https://one.google.com/plans", body: SOURCE, storage });
   data = JSON.parse(run("g1-sku-report.js", { url: REPORT + "?format=json", storage }).payload.response.body);
-  assert.equal(data.scan.version, "g1-acq-v7.5");
+  assert.equal(data.scan.version, "g1-acq-v7.5.1");
   assert.equal(data.scan.scannedResponses, 6);
   assert.equal(data.scan.matchedResponses, 2);
   assert.equal(data.scan.skus.length, 1);
@@ -283,7 +291,7 @@ test("activity export rejects malformed metadata and excludes untrusted extra fi
     candidateCount: 2, addedCount: 0, omittedCount: 0, body: "private-body", query: "private-token"
   };
   const storage = new Map([[SCAN_KEY, JSON.stringify({
-    schemaVersion: 1, version: "g1-acq-v7.5",
+    schemaVersion: 1, version: "g1-acq-v7.5.1",
     recentResponses: [event, { ...event, at: "<script>private</script>" }, { ...event, status: "constructor" }, { ...event, bodyType: "unknown" }]
   })]]);
   const result = run("g1-sku-report.js", { url: REPORT + "?format=json", storage });
@@ -377,7 +385,7 @@ test("report displays captured IDs and test sources without external assets", ()
   assert.match(payload.response.body, /Google One SKU 本地报告/);
   assert(payload.response.body.includes(SOURCE));
   assert(payload.response.body.includes(TARGET));
-  assert(payload.response.body.includes("本机脚本已接管 · v7.5.0"));
+  assert(payload.response.body.includes("本机脚本已接管 · v7.5.1"));
   assert.match(payload.response.body, /<button\b[^>]*name=format[^>]*value=json[^>]*>导出 JSON<\/button>/);
   assert(!/<(?:script|img|iframe)\b/i.test(payload.response.body));
   assert.equal(payload.response.headers["Cache-Control"], "no-store");
@@ -396,37 +404,39 @@ test("report export form resolves to a JSON attachment and supports a trailing s
     const result = run("g1-sku-report.js", { url: exportURL, storage });
     assert.equal(result.payload.response.status, 200);
     assert.equal(result.payload.response.headers["Content-Disposition"], 'attachment; filename="g1-sku-report.json"');
-    assert.equal(result.payload.response.headers["X-G1-Report-Version"], "v7.5.0");
+    assert.equal(result.payload.response.headers["X-G1-Report-Version"], "v7.5.1");
     const data = JSON.parse(result.payload.response.body);
-    assert.equal(data.reportVersion, "v7.5.0");
+    assert.equal(data.reportVersion, "v7.5.1");
     assert.equal(data.configuredTarget, TARGET);
     assert.equal(data.test.target, TARGET);
     assert.equal(data.test.targetOrigin, "user-specified");
     assert.equal(data.scan.skus[0].id, SOURCE);
     assert.equal(data.test.matchedFrom[0].to, TARGET);
-    assert(result.logs.some(line => line.includes("[g1-sku-report] v7.5.0 json")));
+    assert(result.logs.some(line => line.includes("[g1-sku-report] v7.5.1 json")));
   }
 });
 
 test("report exports each actual target and separates annual hits from total hits", () => {
   const storage = new Map();
   run("g1-acq.js", {
-    body: JSON.stringify([SOURCE, TWENTY, THIRTY, THIRTY_FALLBACK]), storage
+    body: JSON.stringify([SOURCE, TWENTY, THIRTY, TWENTY_FALLBACK, LEGACY_THIRTY_FALLBACK]), storage
   });
   const result = run("g1-sku-report.js", { url: REPORT + "?format=json", storage });
   const data = JSON.parse(result.payload.response.body).test;
-  assert.equal(data.version, "g1-acq-v7.5");
+  assert.equal(data.version, "g1-acq-v7.5.1");
   assert.equal(data.hitCount, 3);
   assert.equal(data.annualHitCount, 1);
-  assert.equal(data.matchedFrom.find(row => row.id === TWENTY).to, TWENTY_TARGET);
+  assert.deepEqual(data.matchedFrom.find(row => row.id === TWENTY), {
+    id: TWENTY, count: 1, to: TWENTY_FALLBACK, fallback: true
+  });
   assert.deepEqual(data.matchedFrom.find(row => row.id === THIRTY), {
-    id: THIRTY, count: 1, to: THIRTY_FALLBACK, fallback: true
+    id: THIRTY, count: 1, to: THIRTY_TARGET, fallback: false
   });
   const html = run("g1-sku-report.js", { url: REPORT, storage }).payload.response.body;
   assert(html.includes("最近一次三档映射"));
   assert(html.includes("其中 2TB：1"));
-  assert(html.includes(TWENTY_TARGET));
-  assert(html.includes(THIRTY_FALLBACK));
+  assert(html.includes(TWENTY_FALLBACK));
+  assert(html.includes(THIRTY_TARGET));
 });
 
 test("new report displays existing v1 records with their original 2TB target", () => {
@@ -532,7 +542,7 @@ test("the new installer replaces the old entry and all modules share one fixed r
     if (file === "g1-acq-v7.sgmodule") assert.match(module, /^#!name=G1 ACQ$/m);
     for (const script of scripts) {
       const url = script.match(/script-path=([^,\s]+)/)[1];
-      assert.match(url, /^https:\/\/cdn\.jsdelivr\.net\/gh\/crhywun\/g1-acq@v7\.5\.0\/[a-z0-9.-]+\.js$/);
+      assert.match(url, /^https:\/\/cdn\.jsdelivr\.net\/gh\/nhoxloxchoi11\/g1-acq@v7\.5\.1\/[a-z0-9.-]+\.js$/);
       const base = url.slice(0, url.lastIndexOf("/") + 1);
       if (!scriptBase) scriptBase = base;
       assert.equal(base, scriptBase);

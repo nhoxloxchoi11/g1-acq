@@ -7,11 +7,10 @@
   var TARGET = "g1.2tb.ai.annual";
   var SKU_MAP = {
     "g1.ios.20tb.m.v2": "g1.20tb.3months_ip_90p.acq",
-    "g1.ios.30tb.ai.pro.m": "g1.ai.ultra.3months_ip_90p.acq"
+    "g1.ios.30tb.ai.pro.m": "g1.ai.ultra.1month_eft.acq"
   };
   var FALLBACK = {
-    "g1.20tb.3months_ip_90p.acq": "g1.20tb.3months_ip_75p.acq",
-    "g1.ai.ultra.3months_ip_90p.acq": "g1.ai.ultra.3months_ip_75p.acq"
+    "g1.20tb.3months_ip_90p.acq": "g1.20tb.3months_ip_75p.acq"
   };
   var STORE_KEY = "g1.pro.annual.test.v1";
   var url = typeof $request === "object" && $request ? $request.url : "";
@@ -28,7 +27,7 @@
   var out = body;
 
   if (typeof body === "string") {
-    // Preserve v6's 20TB/30TB fallback rule using the original response.
+    // Preserve v6's 20TB fallback rule using the original response.
     // These are observed strings, not a verified store catalog.
     var observed = body.match(/g1\.[a-z0-9._]{2,60}acq/g) || [];
     // Match complete tokens before selecting 2TB or the two existing source IDs.
