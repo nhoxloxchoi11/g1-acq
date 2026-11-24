@@ -3,8 +3,8 @@
 
 (function () {
   var ROOT = "https://one.google.com/g1-sku-report";
-  var VERSION = "v7.5.3";
-  var COLLECTOR_VERSION = "g1-acq-v7.5.3";
+  var VERSION = "v7.6.0";
+  var COLLECTOR_VERSION = "g1-acq-v7.6.0";
   var CONFIGURED_TARGET = "g1.2tb.ai.12months_ip_90p";
   var LEGACY_TARGET = "g1.2tb.ai.annual";
   var SCAN_KEY = "g1.sku.scan.v1";
@@ -41,6 +41,7 @@
     return typeof value === "string" ? value.slice(0, length || 180) : "";
   }
   function count(value) {
+    if (typeof value !== "number" && typeof value !== "string") return 0;
     var number = Number(value);
     return isFinite(number) && number > 0 ? Math.floor(number) : 0;
   }
@@ -62,6 +63,43 @@
       }
       return out;
     }).sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+  }
+
+  function offerToken(value) {
+    return typeof value === "string" && value.length > 0 && value.length <= 2048 &&
+      /\S/.test(value) && !/[\x00-\x1f\x7f-\x9f]/.test(value) ? value : "";
+  }
+  function offerIdentifier(value) {
+    return typeof value === "string" && value.length <= 180 &&
+      (value === "" || /\S/.test(value)) && !/[\x00-\x1f\x7f-\x9f]/.test(value) ? value : "";
+  }
+  function offerRows(value, linked) {
+    if (!Array.isArray(value)) return [];
+    var seen = Object.create(null);
+    return value.slice(0, 200).filter(function (row) {
+      if (!row || !offerToken(row.token)) return false;
+      if (linked && (typeof row.sku !== "string" || row.sku.length > 160 ||
+          !/^(?:g1\.|com\.google\.one\.)[A-Za-z0-9][A-Za-z0-9._-]*$/.test(row.sku))) return false;
+      var key = JSON.stringify(linked ? [row.sku, row.token, offerIdentifier(row.offerId)] : [row.token]);
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    }).map(function (row) {
+      var result = { token: row.token, count: count(row.count), lastSeen: text(row.lastSeen, 32) };
+      if (linked) {
+        result.sku = row.sku;
+        result.offerId = offerIdentifier(row.offerId);
+      }
+      return result;
+    });
+  }
+  function proSku(value) {
+    return value === "g1.ios.ai.pro" || value.indexOf("g1.ios.ai.pro.") === 0;
+  }
+  function eftOffer(row) {
+    return [row.sku, row.offerId, row.token].some(function (value) {
+      return value.toLowerCase().indexOf("12months_eft") !== -1;
+    });
   }
 
   var scanStatuses = {
@@ -144,6 +182,21 @@
       matchedFrom: matchedFrom
     }
   };
+  report.scan.offerTokens = offerRows(scanRaw.offerTokens, false);
+  report.scan.offerLinks = offerRows(scanRaw.offerLinks, true);
+  var offerMeta = scanRaw.offerScan && typeof scanRaw.offerScan === "object" ? scanRaw.offerScan : {};
+  report.scan.offerScan = {
+    limit: 200,
+    maxTokenLength: 2048,
+    truncated: offerMeta.truncated === true,
+    limited: offerMeta.limited === true
+  };
+  report.scan.focus = {
+    skuPrefix: "g1.ios.ai.pro",
+    offerMarker: "12months_eft",
+    skus: report.scan.skus.filter(function (row) { return proSku(row.id); }),
+    offers: report.scan.offerLinks.filter(function (row) { return proSku(row.sku) && eftOffer(row); })
+  };
 
   var headers = {
     "Content-Type": "text/html; charset=utf-8",
@@ -186,10 +239,24 @@
           "</td><td>" + event.addedCount + "</td><td>" + event.omittedCount + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
+  function offerTable(items, linked) {
+    if (!items.length) return "<p>Chưa có bản ghi phù hợp.</p>";
+    return "<div class=scroll><table><thead><tr>" +
+      (linked ? "<th>SKU</th><th>offerId</th>" : "") +
+      "<th>offerIdToken</th><th>Số phản hồi</th><th>Lần thấy gần nhất (UTC)</th></tr></thead><tbody>" +
+      items.map(function (row) {
+        return "<tr>" + (linked ? "<td><code>" + escape(row.sku) + "</code></td><td><code>" +
+          escape(row.offerId || "Chưa có offerId") + "</code></td>" : "") +
+          "<td><code>" + escape(row.token) + "</code></td><td>" + row.count +
+          "</td><td>" + escape(row.lastSeen) + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
   var latestScan = report.scan.recentResponses.length ?
     report.scan.recentResponses[report.scan.recentResponses.length - 1] : null;
   var scanVersionStatus = report.scan.version === COLLECTOR_VERSION ?
     "记录来自本版采集脚本；按响应时间与计数判断是否产生了新记录。" :
+    report.scan.version === "g1-sku-scan-v7.6.0" ?
+      "记录来自本版独立扫描器；已支持 SKU 和 offerIdToken，独立入口不提供最近 10 次响应诊断。" :
     report.scan.version ? "旧采集记录；尚未保存本版采集响应记录。" : "尚未保存本版采集响应记录。";
   var statuses = {
     "rewritten": "已执行字符串替换",
@@ -235,6 +302,20 @@
     report.scan.truncated ? "<p>记录已达到 300 个上限；清空后可重新采集目标页面。</p>" : "",
     table(report.scan.skus, true),
     "<p>更新时间（UTC）：" + escape(report.scan.updatedAt || "暂无") + "</p></section>",
+    "<section><h2>Lọc g1.ios.ai.pro / 12months_eft</h2>",
+    "<p>Chỉ hiển thị SKU đã nhận được thuộc g1.ios.ai.pro hoặc g1.ios.ai.pro.*. Các liên kết bên dưới có chuỗi 12months_eft trong SKU, offerId hoặc token quan sát được.</p>",
+    table(report.scan.focus.skus, true),
+    offerTable(report.scan.focus.offers, true),
+    "<p class=note>Không suy ra thời hạn từ token ẩn. Không có kết quả chưa chứng minh ưu đãi không tồn tại; phản hồi chưa gửi xuống hoặc dùng định dạng khác có thể chưa được nhận diện.</p></section>",
+    "<section><h2>Liên kết SKU / offerIdToken</h2>",
+    "<p>Chỉ ghép khi một SKU và một offerIdToken nằm trong cùng một đối tượng JSON, qua các trường có tên rõ ràng. Không ghép theo khoảng cách văn bản hoặc chỉ vì cùng phản hồi.</p>",
+    offerTable(report.scan.offerLinks, true), "</section>",
+    "<section><h2>offerIdToken đã thu được</h2>",
+    "<p>Giữ nguyên token có tên trường offerIdToken; số lần đếm là số phản hồi có token, mỗi phản hồi chỉ tăng một lần. Token chưa có liên kết rõ ràng vẫn được giữ trong danh sách này.</p>",
+    offerTable(report.scan.offerTokens, false),
+    report.scan.offerScan.truncated ? "<p>Đã chạm giới hạn 200 token hoặc 200 liên kết; các bản ghi đã có vẫn được cập nhật.</p>" : "",
+    report.scan.offerScan.limited ? "<p>Đã chạm giới hạn phân tích hoặc có token quá dài; kết quả có thể chưa đầy đủ.</p>" : "",
+    "<p class=note>Dữ liệu lưu trên thiết bị. Dùng 导出 JSON để xuất scan.offerTokens, scan.offerLinks và scan.focus.</p></section>",
     "<form method=get action=\"" + ROOT + "\"><button name=clear value=1>清空本工具的采集与测试记录</button></form>",
     "<p class=note>浏览方案后刷新本页查看记录；独立采集器和历史改写副本保持停用，避免重复记录。</p></html>"
   ].join("");
