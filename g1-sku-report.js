@@ -3,8 +3,8 @@
 
 (function () {
   var ROOT = "https://one.google.com/g1-sku-report";
-  var VERSION = "v7.6.0";
-  var COLLECTOR_VERSION = "g1-acq-v7.6.0";
+  var VERSION = "v7.7.0";
+  var COLLECTOR_VERSION = "g1-acq-v7.7.0";
   var CONFIGURED_TARGET = "g1.2tb.ai.12months_ip_90p";
   var LEGACY_TARGET = "g1.2tb.ai.annual";
   var SCAN_KEY = "g1.sku.scan.v1";
@@ -51,10 +51,9 @@
   function rows(value, withTime, defaultTarget) {
     if (!Array.isArray(value)) return [];
     return value.slice(0, 300).filter(function (row) {
-      return row && typeof row.id === "string" &&
-        /^(?:g1\.|com\.google\.one\.)[A-Za-z0-9._-]{1,160}$/.test(row.id);
+      return row && cleanSkuCandidate(row.id);
     }).map(function (row) {
-      var out = { id: row.id, count: count(row.count) };
+      var out = { id: cleanSkuCandidate(row.id), count: count(row.count) };
       if (withTime) {
         out.lastSeen = text(row.lastSeen, 32);
       } else {
@@ -67,7 +66,8 @@
 
   function offerToken(value) {
     return typeof value === "string" && value.length > 0 && value.length <= 2048 &&
-      /\S/.test(value) && !/[\x00-\x1f\x7f-\x9f]/.test(value) ? value : "";
+      /\S/.test(value) && !/[\x00-\x1f\x7f-\x9f]/.test(value) &&
+      !/^(?:undefined|function|arguments|offeridtoken|offer_id_token|offertoken|offer_token|offer-id-token)$/i.test(value) ? value : "";
   }
   function offerIdentifier(value) {
     return typeof value === "string" && value.length <= 180 &&
@@ -78,22 +78,44 @@
     var seen = Object.create(null);
     return value.slice(0, 200).filter(function (row) {
       if (!row || !offerToken(row.token)) return false;
-      if (linked && (typeof row.sku !== "string" || row.sku.length > 160 ||
-          !/^(?:g1\.|com\.google\.one\.)[A-Za-z0-9][A-Za-z0-9._-]*$/.test(row.sku))) return false;
-      var key = JSON.stringify(linked ? [row.sku, row.token, offerIdentifier(row.offerId)] : [row.token]);
+      if (linked && !cleanSkuCandidate(row.sku)) return false;
+      var key = JSON.stringify(linked ? [cleanSkuCandidate(row.sku), row.token, offerIdentifier(row.offerId)] : [row.token]);
       if (seen[key]) return false;
       seen[key] = true;
       return true;
     }).map(function (row) {
       var result = { token: row.token, count: count(row.count), lastSeen: text(row.lastSeen, 32) };
       if (linked) {
-        result.sku = row.sku;
+        result.sku = cleanSkuCandidate(row.sku);
         result.offerId = offerIdentifier(row.offerId);
       }
       return result;
     });
   }
+  function encodedRows(value) {
+    if (!Array.isArray(value)) return [];
+    var seen = Object.create(null);
+    var result = [];
+    value.slice(0, 200).forEach(function (row) {
+      if (!row || !offerToken(row.token) || !Array.isArray(row.skus) ||
+          (row.format !== "protobuf" && row.format !== "ascii") ||
+          ["body", "url", "location"].indexOf(row.source) === -1) return;
+      var ids = [];
+      row.skus.slice(0, 10).forEach(function (value) {
+        var id = cleanSkuCandidate(value);
+        if (id && ids.indexOf(id) === -1) ids.push(id);
+      });
+      if (!ids.length) return;
+      var key = JSON.stringify([row.token, ids.slice().sort(), row.format, row.source]);
+      if (seen[key]) return;
+      seen[key] = true;
+      result.push({ token: row.token, skus: ids, format: row.format, source: row.source,
+        count: count(row.count), lastSeen: text(row.lastSeen, 32) });
+    });
+    return result;
+  }
   function proSku(value) {
+    value = value.toLowerCase();
     return value === "g1.ios.ai.pro" || value.indexOf("g1.ios.ai.pro.") === 0;
   }
   function eftOffer(row) {
@@ -164,6 +186,7 @@
       updatedAt: text(scanRaw.updatedAt, 32),
       scannedResponses: count(scanRaw.scannedResponses),
       matchedResponses: count(scanRaw.matchedResponses),
+      matchedOfferTokenResponses: count(scanRaw.matchedOfferTokenResponses),
       nonTextResponses: count(scanRaw.nonTextResponses),
       recentResponses: recent(scanRaw.recentResponses),
       truncated: scanRaw.truncated === true,
@@ -182,12 +205,19 @@
       matchedFrom: matchedFrom
     }
   };
-  report.scan.offerTokens = offerRows(scanRaw.offerTokens, false);
+  report.scan.offerTokens = offerRows(
+    (Array.isArray(scanRaw.offerTokens) ? scanRaw.offerTokens : []).concat(
+      Array.isArray(scanRaw.offerIdTokens) ? scanRaw.offerIdTokens : []), false);
   report.scan.offerLinks = offerRows(scanRaw.offerLinks, true);
+  report.scan.encodedCandidates = encodedRows(scanRaw.encodedCandidates);
   var offerMeta = scanRaw.offerScan && typeof scanRaw.offerScan === "object" ? scanRaw.offerScan : {};
   report.scan.offerScan = {
     limit: 200,
     maxTokenLength: 2048,
+    maxBodyChars: 4 * 1024 * 1024,
+    maxBase64Probes: 600,
+    base64Probes: Math.min(600, count(offerMeta.base64Probes)),
+    tokenCount: count(offerMeta.tokenCount),
     truncated: offerMeta.truncated === true,
     limited: offerMeta.limited === true
   };
@@ -195,7 +225,12 @@
     skuPrefix: "g1.ios.ai.pro",
     offerMarker: "12months_eft",
     skus: report.scan.skus.filter(function (row) { return proSku(row.id); }),
-    offers: report.scan.offerLinks.filter(function (row) { return proSku(row.sku) && eftOffer(row); })
+    offers: report.scan.offerLinks.filter(function (row) { return proSku(row.sku) && eftOffer(row); }),
+    encodedCandidates: report.scan.encodedCandidates.filter(function (row) {
+      return row.skus.some(proSku) && [row.token].concat(row.skus).some(function (value) {
+        return value.toLowerCase().indexOf("12months_eft") !== -1;
+      });
+    })
   };
 
   var headers = {
@@ -251,11 +286,20 @@
           "</td><td>" + escape(row.lastSeen) + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
+  function encodedTable(items) {
+    if (!items.length) return "<p>Chưa có ứng viên Base64 phù hợp.</p>";
+    return "<div class=scroll><table><thead><tr><th>SKU bên trong dữ liệu giải mã</th><th>Token Base64 ứng viên</th><th>Dạng / nguồn</th><th>Số phản hồi</th></tr></thead><tbody>" +
+      items.map(function (row) {
+        return "<tr><td><code>" + escape(row.skus.join(", ")) + "</code></td><td><code>" +
+          escape(row.token) + "</code></td><td>" + escape(row.format + " / " + row.source) +
+          "</td><td>" + row.count + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
   var latestScan = report.scan.recentResponses.length ?
     report.scan.recentResponses[report.scan.recentResponses.length - 1] : null;
   var scanVersionStatus = report.scan.version === COLLECTOR_VERSION ?
     "记录来自本版采集脚本；按响应时间与计数判断是否产生了新记录。" :
-    report.scan.version === "g1-sku-scan-v7.6.0" ?
+    report.scan.version === "g1-sku-scan-v7.7.0" ?
       "记录来自本版独立扫描器；已支持 SKU 和 offerIdToken，独立入口不提供最近 10 次响应诊断。" :
     report.scan.version ? "旧采集记录；尚未保存本版采集响应记录。" : "尚未保存本版采集响应记录。";
   var statuses = {
@@ -282,7 +326,7 @@
     "<section><h2>采集运行记录</h2>",
     "<p>实际采集脚本：<code>" + escape(report.scan.version || "暂无记录") + "</code><br>" + scanVersionStatus + "</p>",
     "<p>已扫描文本响应：" + report.scan.scannedResponses + "；已记录非文本响应：" + report.scan.nonTextResponses +
-      "；含商品编号的响应：" + report.scan.matchedResponses + "；累计编号：" + report.scan.skus.length + "</p>",
+      "；含商品编号的响应：" + report.scan.matchedResponses + "；含命名 offer token 的响应：" + report.scan.matchedOfferTokenResponses + "；累计编号：" + report.scan.skus.length + "</p>",
     "<p>最近保存时间（UTC）：" + escape(report.scan.updatedAt || "暂无") + "</p>",
     latestScan ? "<p><strong>最近一条：" + scanStatuses[latestScan.status] + "</strong><br>识别 " +
       latestScan.candidateCount + " 个不同编号，新增录入 " + latestScan.addedCount + " 个，容量外 " + latestScan.omittedCount + " 个。</p>" : "",
@@ -306,18 +350,35 @@
     "<p>Chỉ hiển thị SKU đã nhận được thuộc g1.ios.ai.pro hoặc g1.ios.ai.pro.*. Các liên kết bên dưới có chuỗi 12months_eft trong SKU, offerId hoặc token quan sát được.</p>",
     table(report.scan.focus.skus, true),
     offerTable(report.scan.focus.offers, true),
+    encodedTable(report.scan.focus.encodedCandidates),
     "<p class=note>Không suy ra thời hạn từ token ẩn. Không có kết quả chưa chứng minh ưu đãi không tồn tại; phản hồi chưa gửi xuống hoặc dùng định dạng khác có thể chưa được nhận diện.</p></section>",
     "<section><h2>Liên kết SKU / offerIdToken</h2>",
     "<p>Chỉ ghép khi một SKU và một offerIdToken nằm trong cùng một đối tượng JSON, qua các trường có tên rõ ràng. Không ghép theo khoảng cách văn bản hoặc chỉ vì cùng phản hồi.</p>",
     offerTable(report.scan.offerLinks, true), "</section>",
     "<section><h2>offerIdToken đã thu được</h2>",
-    "<p>Giữ nguyên token có tên trường offerIdToken; số lần đếm là số phản hồi có token, mỗi phản hồi chỉ tăng một lần. Token chưa có liên kết rõ ràng vẫn được giữ trong danh sách này.</p>",
+    "<p>Giữ nguyên token từ các trường offerIdToken / offerToken; số lần đếm là số phản hồi có token, mỗi phản hồi chỉ tăng một lần. Token nhập từ bản cũ được giữ lại nhưng không tự xác nhận trường hoặc nguồn ban đầu. Token chưa có liên kết rõ ràng vẫn có trong danh sách này.</p>",
     offerTable(report.scan.offerTokens, false),
     report.scan.offerScan.truncated ? "<p>Đã chạm giới hạn 200 token hoặc 200 liên kết; các bản ghi đã có vẫn được cập nhật.</p>" : "",
     report.scan.offerScan.limited ? "<p>Đã chạm giới hạn phân tích hoặc có token quá dài; kết quả có thể chưa đầy đủ.</p>" : "",
     "<p class=note>Dữ liệu lưu trên thiết bị. Dùng 导出 JSON để xuất scan.offerTokens, scan.offerLinks và scan.focus.</p></section>",
+    "<section><h2>Ứng viên Base64 / protobuf</h2>",
+    "<p>Các chuỗi Base64/Base64URL có chứa SKU khi giải mã, lấy từ body, URL hoặc Location. Đây là ứng viên quan sát được, chưa xác nhận là offerIdToken hay quan hệ mua gói.</p>",
+    encodedTable(report.scan.encodedCandidates),
+    "<p class=note>Không tự biến các SKU cùng nằm trong token thành liên kết SKU / offerIdToken. Danh sách này được xuất trong scan.encodedCandidates.</p></section>",
     "<form method=get action=\"" + ROOT + "\"><button name=clear value=1>清空本工具的采集与测试记录</button></form>",
     "<p class=note>浏览方案后刷新本页查看记录；独立采集器和历史改写副本保持停用，避免重复记录。</p></html>"
   ].join("");
   $done({ response: { status: 200, headers: headers, body: html } });
+  function cleanSkuCandidate(raw) {
+    if (typeof raw !== "string") return "";
+    var id = raw.replace(/[.:]+$/, "");
+    if (!/^(?:g1[._:]|com\.google\.one\.)[A-Za-z0-9._:-]{2,240}$/i.test(id)) return "";
+    if (/^g1[._:]/i.test(id)) {
+      var suffix = id.slice(3);
+      if (/^(?:prototype|constructor|length|call|apply|bind|tostring|valueof|hasownproperty|push|pop|shift|unshift|slice|splice|map|filter|foreach|reduce|indexof|includes|split|join|replace|match|test|exec|trim|keys|values|entries|then|catch|finally|style|classname|classlist|innerhtml|textcontent|parentnode|childnodes|appendchild|removechild|getattribute|setattribute|addeventlistener|removeeventlistener|target|currenttarget|preventdefault|stoppropagation|src|href|width|height|top|left|right|bottom|focus|blur|click|checked|disabled|selected|options|nodetype|nodename|tagname|dataset|documentelement|body|head|value|name|id)$/i.test(suffix)) return "";
+      if (/\.(?:js|mjs|cjs|css|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|map|html?|xml|com|net|org|io|dev|app|gstatic\.com|googleapis\.com|googleusercontent\.com)$/i.test(id)) return "";
+    }
+    return id;
+  }
+
 })();
